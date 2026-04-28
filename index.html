@@ -1,0 +1,291 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+<meta charset="UTF-8">
+<title>SSW - Painel Completo</title>
+
+<style>
+body {
+  font-family: Arial, sans-serif;
+  background: #0f172a;
+  color: #e2e8f0;
+  margin: 0;
+  padding: 0;
+}
+
+header {
+  background: #1e293b;
+  padding: 20px;
+  text-align: center;
+  font-size: 22px;
+  font-weight: bold;
+}
+
+.container {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 20px;
+  padding: 20px;
+}
+
+.card {
+  background: #1e293b;
+  padding: 20px;
+  border-radius: 10px;
+  box-shadow: 0 0 10px rgba(0,0,0,0.3);
+}
+
+.history {
+  grid-column: span 2;
+}
+
+input, button {
+  width: 100%;
+  padding: 10px;
+  margin-top: 10px;
+  border-radius: 6px;
+  border: none;
+  font-size: 14px;
+}
+
+input {
+  background: #0f172a;
+  color: white;
+  border: 1px solid #334155;
+}
+
+button {
+  background: #3b82f6;
+  color: white;
+  cursor: pointer;
+  font-weight: bold;
+}
+
+button:hover {
+  background: #2563eb;
+}
+
+pre {
+  background: #0f172a;
+  padding: 15px;
+  border-radius: 8px;
+  overflow: auto;
+  max-height: 250px;
+  white-space: pre-wrap;
+  word-wrap: break-word;
+}
+
+/* tabela */
+table {
+  width: 100%;
+  border-collapse: collapse;
+  margin-top: 10px;
+  background: #1e293b;
+}
+
+th, td {
+  border: 1px solid #334155;
+  padding: 8px;
+  font-size: 13px;
+  vertical-align: top;
+}
+
+th {
+  background: #111827;
+}
+
+tr:hover {
+  background: #0f172a;
+}
+
+/* descrição */
+.desc {
+  white-space: pre-wrap;
+  word-break: break-word;
+  max-width: 400px;
+  line-height: 1.4;
+}
+
+.badge-id {
+  color: #60a5fa;
+  font-weight: bold;
+}
+</style>
+</head>
+
+<body>
+
+<header>
+🚚 Sistema SSW - Painel Completo
+</header>
+
+<div class="container">
+
+<!-- TOKEN -->
+<div class="card">
+  <h3>🔐 Gerar Token</h3>
+
+  <input id="domain" placeholder="Domain">
+  <input id="username" placeholder="Username">
+  <input id="password" placeholder="Password">
+  <input id="cnpj" placeholder="CNPJ">
+
+  <button onclick="gerarToken()">Gerar Token</button>
+
+  <h4>Resposta:</h4>
+  <pre id="tokenBox"></pre>
+</div>
+
+<!-- OCORRÊNCIA -->
+<div class="card">
+  <h3>📦 Enviar Ocorrência</h3>
+
+  <input id="tokenInput" placeholder="Token">
+
+  <input id="cte" placeholder="CTe">
+  <input id="nfe" placeholder="NFe">
+  <input id="serie" placeholder="Série">
+
+  <input id="codigo" placeholder="Código Ocorrência">
+  <input id="descricao" placeholder="Descrição">
+
+  <button onclick="enviarOcorrencia()">Enviar</button>
+
+  <h4>Resposta:</h4>
+  <pre id="respostaBox"></pre>
+</div>
+
+<!-- HISTÓRICO -->
+<div class="card history">
+  <h3>📊 Histórico de Ocorrências</h3>
+
+  <button onclick="carregarHistorico()">🔄 Atualizar</button>
+
+  <table>
+    <thead>
+      <tr>
+        <th>ID</th>
+        <th>Token</th>
+        <th>CTE</th>
+        <th>NFe</th>
+        <th>Código</th>
+        <th>Descrição</th>
+        <th>Data</th>
+      </tr>
+    </thead>
+
+    <tbody id="tbody"></tbody>
+  </table>
+</div>
+
+</div>
+
+<script>
+
+// ---------------- DATA SEGURA ----------------
+function formatarData(dataISO) {
+  if (!dataISO) return "-";
+
+  const d = new Date(dataISO);
+
+  if (isNaN(d.getTime())) return "-";
+
+  return d.toLocaleString("pt-BR");
+}
+
+// ---------------- TOKEN ----------------
+async function gerarToken() {
+
+  const payload = {
+    domain: document.getElementById("domain").value,
+    username: document.getElementById("username").value,
+    password: document.getElementById("password").value,
+    cnpj_edi: document.getElementById("cnpj").value
+  };
+
+  const res = await fetch("http://127.0.0.1:5000/token", {
+    method: "POST",
+    headers: {"Content-Type": "application/json"},
+    body: JSON.stringify(payload)
+  });
+
+  const data = await res.json();
+
+  document.getElementById("tokenBox").innerText =
+    JSON.stringify(data, null, 2);
+
+  if (data.token) {
+    document.getElementById("tokenInput").value = data.token;
+  }
+}
+
+// ---------------- OCORRÊNCIA ----------------
+async function enviarOcorrencia() {
+
+  const payload = {
+    token: document.getElementById("tokenInput").value,
+    payload: {
+      cnpjRemetente: "",
+      nf: {
+        serieNFe: document.getElementById("serie").value,
+        numeroNFe: document.getElementById("nfe").value,
+        chaveNFe: "",
+        pedido: "",
+        codigoNR: ""
+      },
+      cte: {
+        chaveCTe: document.getElementById("cte").value
+      },
+      ocorrencia: {
+        dataHoraEvento: new Date().toISOString(),
+        codigo: document.getElementById("codigo").value,
+        descricao: document.getElementById("descricao").value,
+        unidade: "SPO"
+      }
+    }
+  };
+
+  const res = await fetch("http://127.0.0.1:5000/ocorrencia", {
+    method: "POST",
+    headers: {"Content-Type": "application/json"},
+    body: JSON.stringify(payload)
+  });
+
+  const data = await res.json();
+
+  document.getElementById("respostaBox").innerText =
+    JSON.stringify(data, null, 2);
+}
+
+// ---------------- HISTÓRICO ----------------
+async function carregarHistorico() {
+
+  const res = await fetch("http://127.0.0.1:5000/historico");
+  const data = await res.json();
+
+  const tbody = document.getElementById("tbody");
+  tbody.innerHTML = "";
+
+  data.forEach(item => {
+
+    tbody.innerHTML += `
+      <tr>
+        <td class="badge-id">${item.id}</td>
+        <td>${item.token}</td>
+        <td>${item.cte}</td>
+        <td>${item.nfe}</td>
+        <td>${item.codigo}</td>
+        <td class="desc">${item.descricao}</td>
+        <td>${formatarData(item.data)}</td>
+      </tr>
+    `;
+  });
+}
+
+// auto load
+carregarHistorico();
+
+</script>
+
+</body>
+</html>
